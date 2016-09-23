@@ -1,18 +1,28 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using EWiki.Api.DataAccess;
+using EWiki.Api.Identity;
+using EWiki.Api.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using EWiki.Api.DataAccess;
-using Microsoft.EntityFrameworkCore;
-using EWiki.Api.Models;
-using Microsoft.AspNetCore.Builder;
+using Microsoft.IdentityModel.Tokens;
 using System;
+using System.Security.Cryptography;
 
 namespace EWiki.Api
 {
     public class Startup
     {
+        const string TokenAudience = "EWikiAudience";
+        const string TokenIssuer = "EWikiIssuer";
+        private RsaSecurityKey key;
+        private TokenAuthOptions tokenOptions;
+
         public Startup(IHostingEnvironment env)
         {
             var builder = new ConfigurationBuilder()
@@ -28,6 +38,15 @@ namespace EWiki.Api
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            RSAParameters keyParams = RSAKeyUtils.GetRandomKey();
+            key = new RsaSecurityKey(keyParams);
+            tokenOptions = new TokenAuthOptions()
+            {
+                Audience = TokenAudience,
+                Issuer = TokenIssuer,
+                SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.RsaSha256Signature)
+            };
+
             // Add framework services.
             services.AddEntityFrameworkSqlServer()
                 .AddDbContext<EWikiContext>(options =>
@@ -49,7 +68,24 @@ namespace EWiki.Api
                                 .WithExposedHeaders());
             });
 
+            services.AddAuthorization(auth =>
+            {
+                auth.AddPolicy("Admin", new AuthorizationPolicyBuilder()
+                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
+                    .RequireAuthenticatedUser().Build());
+                auth.AddPolicy("PremiumUser", new AuthorizationPolicyBuilder()
+                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
+                    .RequireAuthenticatedUser().Build());
+                auth.AddPolicy("User", new AuthorizationPolicyBuilder()
+                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
+                    .RequireAuthenticatedUser().Build());
+                auth.AddPolicy("Guest", new AuthorizationPolicyBuilder()
+                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
+                    .RequireAuthenticatedUser().Build());
+            });
+
             // Add application services.
+            services.AddSingleton<TokenAuthOptions>(tokenOptions);
             services.AddSingleton<IDbFactory, DbFactory>();
 
             services.AddSingleton<IArchiveRepository, ArchiveRepository>();
@@ -62,6 +98,7 @@ namespace EWiki.Api
             services.AddSingleton<IPageMetaRepository, PageMetaRepository>();
             services.AddSingleton<IPokedexRepository, PokedexRepository>();
             services.AddSingleton<IRevisionRepository, RevisionRepository>();
+            services.AddSingleton<IUserRepository, UserRepository>();
             services.AddSingleton<IWikiImageRepository, WikiImageRepository>();
         }
 
@@ -112,6 +149,24 @@ namespace EWiki.Api
 
             // For more details: https://docs.asp.net/en/latest/security/cors.html
             app.UseCors("AllowEwikiBDOrigin");
+
+            // Basic settings - signing key to validate with, audience and issuer.
+            app.UseJwtBearerAuthentication(new JwtBearerOptions()
+            {
+                AutomaticAuthenticate = true,
+                AutomaticChallenge = true,
+                TokenValidationParameters = new TokenValidationParameters
+                {
+                    IssuerSigningKey = key,
+                    ValidateAudience = true,
+                    ValidAudience = tokenOptions.Audience,
+                    ValidateIssuer = true,
+                    ValidIssuer = tokenOptions.Issuer,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ClockSkew = TimeSpan.FromMinutes(0)
+                }
+            });
         }
     }
 }

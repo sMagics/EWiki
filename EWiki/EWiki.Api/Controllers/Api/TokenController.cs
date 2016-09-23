@@ -30,7 +30,7 @@ namespace EWiki.Api.Controllers
         }
 
         [HttpGet]
-        [Authorize("Admin")]
+        [Authorize("TokenAuth")]
         public dynamic Get()
         {
             /* 
@@ -89,9 +89,7 @@ namespace EWiki.Api.Controllers
         {
             var handler = new JwtSecurityTokenHandler();
 
-            // Here, you should create or look up an identity for the user which is being authenticated.
-            // For now, just creating a simple generic identity.
-            ClaimsIdentity identity = new ClaimsIdentity(new GenericIdentity(user, "TokenAuth"), new[] { new Claim("EntityID", "1", ClaimValueTypes.Integer) });
+            ClaimsIdentity identity = new ClaimsIdentity(new GenericIdentity(user, "TokenAuth"), new[] { new Claim("UserName", user, ClaimValueTypes.String) });
 
             var securityToken = handler.CreateToken( new SecurityTokenDescriptor
             {

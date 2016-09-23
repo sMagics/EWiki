@@ -4,13 +4,16 @@ using EWiki.Api.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using System;
 using System.Security.Cryptography;
 
@@ -70,22 +73,22 @@ namespace EWiki.Api
 
             services.AddAuthorization(auth =>
             {
-                auth.AddPolicy("Admin", new AuthorizationPolicyBuilder()
+                auth.AddPolicy("TokenAuth", new AuthorizationPolicyBuilder()
                     .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
                     .RequireAuthenticatedUser().Build());
-                auth.AddPolicy("PremiumUser", new AuthorizationPolicyBuilder()
-                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
-                    .RequireAuthenticatedUser().Build());
-                auth.AddPolicy("User", new AuthorizationPolicyBuilder()
-                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
-                    .RequireAuthenticatedUser().Build());
-                auth.AddPolicy("Guest", new AuthorizationPolicyBuilder()
-                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
-                    .RequireAuthenticatedUser().Build());
+                //auth.AddPolicy("PremiumUser", new AuthorizationPolicyBuilder()
+                //    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
+                //    .RequireAuthenticatedUser().Build());
+                //auth.AddPolicy("User", new AuthorizationPolicyBuilder()
+                //    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
+                //    .RequireAuthenticatedUser().Build());
+                //auth.AddPolicy("Guest", new AuthorizationPolicyBuilder()
+                //    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme‌​)
+                //    .RequireAuthenticatedUser().Build());
             });
 
             // Add application services.
-            services.AddSingleton<TokenAuthOptions>(tokenOptions);
+            services.AddSingleton(tokenOptions);
             services.AddSingleton<IDbFactory, DbFactory>();
 
             services.AddSingleton<IArchiveRepository, ArchiveRepository>();
@@ -145,6 +148,31 @@ namespace EWiki.Api
                 routes.MapRoute(
                     name: "default",
                     template: "{controller=Home}/{action=Index}/{id?}");
+            });
+
+            app.UseExceptionHandler(appBuilder =>
+            {
+                appBuilder.Use(async (context, next) =>
+                {
+                    var error = context.Features[typeof(IExceptionHandlerFeature)] as IExceptionHandlerFeature;
+                    if (error != null && error.Error is SecurityTokenExpiredException)
+                    {
+                        context.Response.StatusCode = 401;
+                        context.Response.ContentType = "application/json";
+                        await context.Response.WriteAsync(
+                            JsonConvert.SerializeObject(
+                                new { authenticated = false, tokenExpired = true }));
+                    }
+                    else if (error != null && error.Error != null)
+                    {
+                        context.Response.StatusCode = 500;
+                        context.Response.ContentType = "application/json";
+                        await context.Response.WriteAsync(
+                            JsonConvert.SerializeObject
+                            (new { success = false, error = error.Error.Message }));
+                    }
+                    else await next();
+                });
             });
 
             // For more details: https://docs.asp.net/en/latest/security/cors.html

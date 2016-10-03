@@ -64,5 +64,20 @@ namespace EWiki.Api.Controllers
 
             return Json(user);
         }
+
+        [HttpGet("GetPokemonGoAccounts")]
+        public async Task<IActionResult> GetAccounts(string id)
+        {
+            User cat = (await userRepository.FindByAsync(p => p.Id == id)).FirstOrDefault();
+            return Json(cat.PokemonGoAccounts);
+        }
+
+        [HttpGet("GetActivePokemonGoAccount")]
+        public async Task<IActionResult> GetAccount(string id)
+        {
+            User cat = (await userRepository.FindByAsync(p => p.Id == id)).FirstOrDefault();
+            PokemonGoAccount account = cat.PokemonGoAccounts.Where(a => a.IsActive == true).FirstOrDefault();
+            return Json(account);
+        }
     }
 }

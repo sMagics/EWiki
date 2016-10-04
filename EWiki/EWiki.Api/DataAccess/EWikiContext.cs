@@ -19,7 +19,6 @@ namespace EWiki.Api.DataAccess
         public DbSet<CharacterSectionGroup> CharacterSectionGroups { get; set; }
         public DbSet<FileArchive> FileArchives { get; set; }
         public DbSet<InfoValue> InfoValues { get; set; }
-        public DbSet<PokemonGoAccount> PokemonGoAccounts { get; set; }
         // For pokedex
         public DbSet<Location> Locations { get; set; }
         public DbSet<Move> Moves { get; set; }
@@ -36,6 +35,7 @@ namespace EWiki.Api.DataAccess
         public DbSet<Revision> Revisions { get; set; }
         public DbSet<Site> Sites { get; set; }
         public DbSet<Tag> Tags { get; set; }
+        public DbSet<User> Users { get; set; }
         public DbSet<UserMeta> UserMetas { get; set; }
         public DbSet<UserNewtalk> UserNewtalks { get; set; }
         public DbSet<WatchList> WatchLists { get; set; }
